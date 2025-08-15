@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import Logo from "../../assets/images/logo.png";
-import LogoOnly from "../../assets/images/logoOnly.png";
+import Logo from "../../assets/images/asterion1.png";
+import LogoOnly  from "../../assets/images/asterionNoText.png";
 
 const Sidebar = ({ sidebarExpanded, setSidebarExpanded, sidebarOpen, setSidebarOpen, menuItems, sidebarRef }) => {
   return (
@@ -15,12 +15,12 @@ const Sidebar = ({ sidebarExpanded, setSidebarExpanded, sidebarOpen, setSidebarO
       {/* Logo */}
       <div className="flex items-center justify-center h-14 border-b-1 border-b-neutral-400 dark:border-gray-700 p-2 space-x-1 my-3">
         <img
-          src={sidebarExpanded ? Logo : LogoOnly}
+          src={sidebarExpanded ? LogoOnly : Logo}
           alt="Logo"
-          className="h-full w-auto object-contain"
+          className="h-full w-auto object-cover"
           style={{ filter: 'drop-shadow(0 0 1px white) drop-shadow(0 0 2px white)' }}
         />
-        {sidebarExpanded && <span className="text-lg font-bold">Company</span>}
+        {sidebarExpanded && <span className="text-lg font-bold">Asterion</span>}
       </div>
      
       {/* Navigation */}

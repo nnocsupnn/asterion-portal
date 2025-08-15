@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-// import logo from "../../assets/images/logo.png";
+import logo from "../../assets/images/asterion1.png";
 import { IoEye, IoEyeOff } from "react-icons/io5";
 import { mockUsers } from "../../data/mockdata";
 import '../../App.css';
@@ -33,7 +33,7 @@ const LoginPage = () => {
       <div className="flex flex-1 items-center justify-center px-4 py-12 sm:px-6 lg:px-10">
         <div className="">
           {/* Logo */}
-          {/* <img src={logo} alt="Your Company" className="w-[100px] sm:w-[200px] lg:w-[250px] h-auto mx-auto" /> */}
+          <img src={logo} alt="Your Company" className="w-[90px] sm:w-[180px] lg:w-[200px] h-auto mx-auto" />
 
           <div className="w-auto max-w-md space-y-8 bg-gray/10 backdrop-blur-xl border border-white/20 shadow-lg rounded-xl p-6 sm:p-8 ">
             
@@ -141,9 +141,10 @@ const LoginPage = () => {
       </div>
 
       {/* Footer */}
-      <footer className="mt-auto py-4 text-center text-sm text-gray-500 border-t border-gray-200 bg-white/70 dark:bg-gray-800/70 flex items-center justify-center gap-2">
+      <footer className="mt-auto py-2
+       text-center text-sm text-gray-500 border-t border-gray-200 bg-white/70 dark:bg-gray-800/70 flex items-center justify-center gap-2">
         <span>
-          © 2025 <span className="font-semibold text-blue-600">LOGO™</span> | Powered by <span className="font-semibold text-blue-600">Asterion Solution</span>
+          © 2025 <span className="font-semibold text-blue-600"> Asterion Solution</span>
         </span>
       </footer>
     </div>
