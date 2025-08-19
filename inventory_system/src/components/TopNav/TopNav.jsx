@@ -29,7 +29,7 @@ const TopNav = ({
   setDarkMode,
   handleLogout,
 }) => (
-  <header className={`flex items-center justify-between px-4 py-3 sticky top-0 z-30 transition-shadow dark:border-white/10 dark:border-1 ${scrolled ? "shadow-md" : ""}`}>
+  <header className={`flex items-center justify-between gap-2 px-4 py-3 sticky top-0 z-30 transition-shadow dark:border-white/10 dark:border-1 ${scrolled ? "shadow-md" : ""}`}>
     <div className="flex items-center space-x-5">
       {/* Mobile menu toggle */}
       <button
@@ -181,12 +181,19 @@ const TopNav = ({
         )}
         {/* Notification Mobile */}
         {activePanel === "notifications" && (
-          <div className="absolute right-0 mt-2 w-xs bg-white dark:bg-gray-800 shadow-lg rounded-md overflow-hidden z-50 p-2 md:hidden"> 
-            <NotificationDropdown
-              notifications={notifications}
-              onNotificationClick={handleNotificationClick}
-              onClose={() => setActivePanel(null)}
-            />
+          <div className="fixed inset-0 bg-black/20 bg-opacity-50 flex items-start justify-center pt-16 z-50 md:hidden">
+            <div 
+              className="bg-white dark:bg-gray-800 shadow-lg rounded-lg w-[95vw] h-auto max-w-md overflow-hidden mx-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="">
+                <NotificationDropdown
+                  notifications={notifications}
+                  onNotificationClick={handleNotificationClick}
+                  onClose={() => setActivePanel(null)}
+                />
+              </div>
+            </div>
           </div>
         )}
       </div>

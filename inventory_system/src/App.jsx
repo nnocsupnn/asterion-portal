@@ -9,13 +9,14 @@ import NotificationList from './features/Notification/NotificationList';
 import NotificationDetail from './features/Notification/NotificationDetail';
 import LandingPage from "./pages/Landing_Page/LandingPage";
 import './App.css';
+import SignupPage from "./pages/Register_Page/SignupPage";
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<LoginPage />} />
-        
+        <Route path="/register" element={<SignupPage/>}/>
         {/* User routes */}
         <Route path="/user" element={<UserPage />}>
           <Route path="dashboard" element={<Dashboard />} />

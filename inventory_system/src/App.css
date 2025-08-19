@@ -16,3 +16,44 @@ button{
 .logo-stroke {
   filter: drop-shadow(0 0 1px white) drop-shadow(0 0 2px white);
 }
+
+/* Custom professional scrollbar */
+.pro-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.pro-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pro-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.pro-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 3px;
+}
+
+.pro-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+/* Dark mode styles */
+.dark .pro-scrollbar {
+  scrollbar-color: #4b5563 #1f2937;
+}
+
+.dark .pro-scrollbar::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+.dark .pro-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
+}
+
+.dark .pro-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280;
+}

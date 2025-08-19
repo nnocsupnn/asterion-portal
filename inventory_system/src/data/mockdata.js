@@ -149,3 +149,4 @@ export const mockNotifications = Array.from({ length: 12 }, (_, i) => {
 
 export const getNotificationsForUser = (userId) =>
   mockNotifications.filter(n => n.userId === userId);
+

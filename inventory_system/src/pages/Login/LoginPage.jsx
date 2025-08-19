@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import logo from "../../assets/images/asterion1.png";
 import { IoEye, IoEyeOff } from "react-icons/io5";
 import { mockUsers } from "../../data/mockdata";
@@ -112,6 +112,27 @@ const LoginPage = () => {
             >
               Sign in
             </button>
+            
+             <div className="mt-6 text-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Don't have an account?{' '}
+              </span>
+              <Link
+                to="/register"
+                className="inline-flex items-center font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors duration-200 group"
+              >
+                Sign up now
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className="ml-1 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
 
             {/* Demo Credentials */}
             <div className="mt-8">
