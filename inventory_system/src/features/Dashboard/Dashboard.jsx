@@ -3,15 +3,13 @@ import {
   totalProducts, 
   lowStocks, 
   inventoryValue, 
-  brands, 
-  categories,
-  products,
+  totalRevenue,
+  totalOrders,
+  salesGrowth,
   salesData,
   weeklySalesData,
   salesDistribution,
-  totalRevenue,
-  totalOrders,
-  salesGrowth
+  products
 } from "../../data/mockdata";
 import { formatCurrencyPH } from "../../utils/formatCurrencyPH";
 import { GrMoney } from "react-icons/gr";
@@ -22,7 +20,16 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 
 const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042"];
 
+// Extract brands and categories from products
+const extractBrandsAndCategories = (products) => {
+  const brands = [...new Set(products.map(product => product.brand))];
+  const categories = [...new Set(products.map(product => product.category))];
+  return { brands, categories };
+};
+
 const Dashboard = () => {
+  const { brands, categories } = extractBrandsAndCategories(products);
+  
   // Calculate inventory growth (random for demo)
   const inventoryGrowth = (Math.random() * 10).toFixed(1);
   // Calculate product growth based on recent additions

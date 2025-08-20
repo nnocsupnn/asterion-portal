@@ -1,213 +1,544 @@
-import React, { useState } from 'react';
-import { FiSearch, FiAlertTriangle, FiPackage, FiDollarSign, FiUpload } from 'react-icons/fi';
-import AddProduct from '../Add_Product/addProduct';
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  FiSearch,
+  FiAlertTriangle,
+  FiPackage,
+  FiUpload,
+  FiEdit,
+  FiTrash2,
+  FiEye,
+  FiChevronDown,
+  FiX,
+} from "react-icons/fi";
 import { IoAdd } from "react-icons/io5";
+import { formatCurrencyPH } from "../../utils/formatCurrencyPH";
+import AddProduct from "../Add_Product/addProduct";
+import ViewProduct from "../View_Product/viewProduct";
+import { products, categories, statusOptions } from "../../data/mockdata";
+
+const ITEMS_PER_PAGE = 10;
+
+// Stable sentinels so comparisons are easy
+const ALL_CATEGORIES = "ALL_CATEGORIES";
+const ALL_STATUS = "ALL_STATUS";
+
+const SUMMARY_CARDS = [
+  { key: "total", title: "Total Products", color: "blue", icon: <FiPackage /> },
+  { key: "inStock", title: "In Stock", color: "green", icon: <FiPackage /> },
+  { key: "lowStock", title: "Low Stock", color: "yellow", icon: <FiAlertTriangle /> },
+  { key: "outOfStock", title: "Out of Stock", color: "red", icon: <FiPackage /> },
+];
+
+const TABLE_HEADERS = [
+  { key: "name", label: "Product" },
+  { key: "sku", label: "SKU" },
+  { key: "category", label: "Category" },
+  { key: "initialStock", label: "Stock" },
+  { key: "price", label: "Price" },
+  { key: "status", label: "Status" },
+  { key: null, label: "Actions" },
+];
+
+const getStatusClasses = (status) => {
+  switch (status) {
+    case "In Stock":
+      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+    case "Low Stock":
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+    case "Out of Stock":
+      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+    default:
+      return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+  }
+};
+
 const InventoryPage = () => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [rows, setRows] = useState(products);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
+  const [selectedStatus, setSelectedStatus] = useState(ALL_STATUS);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [viewProduct, setViewProduct] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
-  // Mock data - replace with your actual data source
-  const inventoryData = [
-    {
-      product: 'MacBook Pro 14" Apple Inc.',
-      sku: 'NBP14-801',
-      category: 'Laptops',
-      stock: 25,
-      minStock: 5,
-      price: 1999.99,
-      cost: 1599.99,
-      status: 'In Stock',
-      notes: '',
-      actions: true
-    },
-    {
-      product: 'iPhone 15 Pro Apple Inc.',
-      sku: '1P15P-801',
-      category: 'Smartphones',
-      stock: 3,
-      minStock: 10,
-      price: 999.99,
-      cost: 799.99,
-      status: 'Low Stock',
-      notes: 'Made in Bolt',
-      actions: true
-    }
-  ];
+  // Reset to page 1 when filters/search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory, selectedStatus]);
 
-  const filteredProducts = inventoryData.filter(product =>
-    product.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  // ---------- Derived Counts (live) ----------
+  const counts = useMemo(
+    () => ({
+      total: rows.length,
+      inStock: rows.filter((p) => p.status === "In Stock").length,
+      lowStock: rows.filter((p) => p.status === "Low Stock").length,
+      outOfStock: rows.filter((p) => p.status === "Out of Stock").length,
+    }),
+    [rows]
   );
 
-  const totalProducts = inventoryData.length;
-  const inStockCount = inventoryData.filter(p => p.status === 'In Stock').length;
-  const lowStockCount = inventoryData.filter(p => p.status === 'Low Stock').length;
-  const outOfStockCount = inventoryData.filter(p => p.stock === 0).length;
+  // ---------- Filter + Sort (live) ----------
+  const filteredProducts = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
 
-    
+    let list = rows.filter((p) => {
+      // Always apply search filter if there's a search term
+      const matchesSearch = !term || 
+        p.name.toLowerCase().includes(term) || 
+        p.sku.toLowerCase().includes(term);
+
+      // Apply category filter ONLY if a specific category is selected
+      const matchesCategory = selectedCategory === ALL_CATEGORIES || 
+        p.category === selectedCategory;
+
+      // Apply status filter ONLY if a specific status is selected
+      const matchesStatus = selectedStatus === ALL_STATUS || 
+        p.status === selectedStatus;
+
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+
+    // Apply sorting if configured
+    if (sortConfig.key) {
+      const dir = sortConfig.direction === "ascending" ? 1 : -1;
+      list = [...list].sort((a, b) => {
+        const va = a[sortConfig.key];
+        const vb = b[sortConfig.key];
+
+        // Handle null/undefined values
+        if (va == null && vb == null) return 0;
+        if (va == null) return -1 * dir;
+        if (vb == null) return 1 * dir;
+
+        // Compare numbers
+        if (typeof va === "number" && typeof vb === "number") {
+          return va === vb ? 0 : va > vb ? dir : -dir;
+        }
+
+        // Compare strings
+        const sa = String(va).toLowerCase();
+        const sb = String(vb).toLowerCase();
+        if (sa === sb) return 0;
+        return sa > sb ? dir : -dir;
+      });
+    }
+
+    return list;
+  }, [rows, searchTerm, selectedCategory, selectedStatus, sortConfig]);
+
+  // ---------- Pagination ----------
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
+  const pageIndex = Math.min(currentPage, totalPages);
+  const start = (pageIndex - 1) * ITEMS_PER_PAGE;
+  const currentProducts = filteredProducts.slice(start, start + ITEMS_PER_PAGE);
+
+  // ---------- Handlers ----------
+  const handleSort = (key) => {
+    if (!key) return;
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "ascending" ? "descending" : "ascending",
+    }));
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) return null;
+    return sortConfig.direction === "ascending" ? "↑" : "↓";
+  };
 
   const handleAddProduct = (productData) => {
-    // Handle the new product data here
-    console.log('New product:', productData);
-    // Add your logic to save the product
+    setRows((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        initialStock: productData.initialStock ?? 0,
+        minStock: productData.minStock ?? 0,
+        ...productData,
+      },
+    ]);
+    setIsModalOpen(false);
+  };
+
+  const handleDeleteProduct = (id) => {
+    setRows((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  // Reset filters
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setSelectedCategory(ALL_CATEGORIES);
+    setSelectedStatus(ALL_STATUS);
+    setSortConfig({ key: null, direction: "ascending" });
+    setCurrentPage(1);
+  };
+
+  // Remove individual filter
+  const removeFilter = (type) => {
+    if (type === 'search') setSearchTerm("");
+    if (type === 'category') setSelectedCategory(ALL_CATEGORIES);
+    if (type === 'status') setSelectedStatus(ALL_STATUS);
+  };
+
+  // view product handler
+  const handleViewProduct = () => {
+    setViewProduct(true);
   };
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 px-4 py-8">
-     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
-      {/* Text Content - Always on top on mobile, on left for larger screens */}
-      <div className="text-header order-1 sm:order-1 mb-4 sm:mb-0">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">
-          Inventory Management
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-2 sm:mb-4">
-          Manage your products, stock levels, and inventory operations
-        </p>
-      </div>
-      
-      {/* Buttons - Below text on mobile, on right for larger screens */}
-      <div className="buttons order-2 sm:order-2 flex mb-2 xs:flex-col gap-2 sm:gap-3 justify-start sm:justify-end sm:mb-0 ">
-        <button 
-          type="button" 
-          className="inline-flex items-center justify-center gap-2 text-yellow-400 hover:text-white border border-yellow-400 hover:bg-yellow-500 
-                    focus:ring-4 focus:outline-none focus:ring-yellow-300 font-medium rounded-lg text-sm px-4 py-2.5 text-center 
-                    dark:border-yellow-300 dark:text-yellow-300 dark:hover:text-white dark:hover:bg-yellow-400 dark:focus:ring-yellow-900
-                    w-full xs:w-auto"
-        >
-          <FiUpload className='font-bold'/> 
-          <span className="whitespace-nowrap">Export</span>
-        </button>
-        
-        <button 
-          type="button" 
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center justify-center gap-2 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 
-                  focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2.5  dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none 
-                  dark:focus:ring-blue-800 text-center w-full xs:w-auto"
-        >
-          <IoAdd/> 
-          <span className="whitespace-nowrap">Add Product</span>
-        </button>
-        
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 px-4 py-6 sm:px-6 lg:px-8">
+      {/* ---------- Header ---------- */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">
+            Inventory Management
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Manage your products, stock levels, and inventory operations
+          </p>
+        </div>
+
+        <div className="flex flex-col xs:flex-row gap-3">
+          <button
+            type="button"
+            className="inline-flex items-center justify-center gap-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium rounded-lg px-4 py-2.5 transition-colors"
+          >
+            <FiUpload className="w-4 h-4" aria-hidden="true" /> Export
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center justify-center gap-2 text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 font-medium rounded-lg px-4 py-2.5 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all"
+          >
+            <IoAdd className="w-5 h-5" aria-hidden="true" /> Add Product
+          </button>
+        </div>
+        {/* Add Product Modal */}
         <AddProduct
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onAddProduct={handleAddProduct} 
+          onAddProduct={handleAddProduct}
         />
+         
       </div>
-    </div>
-        
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <FiPackage className="text-blue-500 mr-2" />
-              <h3 className="font-medium">Total Products</h3>
-            </div>
-            <p className="text-2xl font-bold mt-2">{totalProducts}</p>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <FiPackage className="text-green-500 mr-2" />
-              <h3 className="font-medium">In Stock</h3>
-            </div>
-            <p className="text-2xl font-bold mt-2">{inStockCount}</p>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <FiAlertTriangle className="text-yellow-500 mr-2" />
-              <h3 className="font-medium">Low Stock</h3>
-            </div>
-            <p className="text-2xl font-bold mt-2">{lowStockCount}</p>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <FiPackage className="text-red-500 mr-2" />
-              <h3 className="font-medium">Out of Stock</h3>
-            </div>
-            <p className="text-2xl font-bold mt-2">{outOfStockCount}</p>
-          </div>
-        </div>
+     
 
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FiSearch className="text-gray-400" />
+      {/* ---------- Summary Cards ---------- */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {SUMMARY_CARDS.map(({ key, title, color, icon }) => (
+          <div
+            key={key}
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{counts[key]}</p>
+              </div>
+              <div className={`p-3 rounded-lg bg-${color}-100 dark:bg-${color}-900/30 text-${color}-600 dark:text-${color}-400`}>
+                {icon}
+              </div>
             </div>
-            <input
-              type="text"
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white dark:bg-gray-800 placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="Search products by name or SKU..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
           </div>
-        </div>
+        ))}
+      </div>
 
-        {/* Inventory Table */}
-        <div className="bg-white dark:bg-gray-800 shadow overflow-hidden rounded-lg w-full">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Product</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">SKU</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Category</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Stock</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Price</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredProducts.map((product, index) => (
-                  <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {product.product}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                      {product.sku}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                      {product.category}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                      {product.stock} <span className="text-xs text-gray-400">Min: {product.minStock}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                      ${product.price.toFixed(2)} <span className="text-xs text-gray-400">Cost: ${product.cost.toFixed(2)}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        product.status === 'In Stock' 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                          : product.status === 'Low Stock' 
-                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' 
-                            : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                      }`}>
-                        {product.status}
-                      </span>
-                      {product.notes && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{product.notes}</p>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                      {product.actions && (
-                        <button className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">
-                          ✓
-                        </button>
-                      )}
-                    </td>
-                  </tr>
+      {/* ---------- Filters & Search ---------- */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+        <div className="flex flex-col md:flex-row gap-4 items-end">
+          {/* Search */}
+          <div className="flex-1 w-full">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Search Products
+            </label>
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="search"
+                placeholder="Search by name or SKU..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* Category Filter */}
+          <div className="w-full md:w-auto">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Category
+            </label>
+            <div className="relative">
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="appearance-none w-full p-2.5 pr-8 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value={ALL_CATEGORIES}>All Categories</option>
+                {categories.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
                 ))}
-              </tbody>
-            </table>
+              </select>
+              <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Status Filter */}
+          <div className="w-full md:w-auto">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Status
+            </label>
+            <div className="relative">
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="appearance-none w-full p-2.5 pr-8 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value={ALL_STATUS}>All Status</option>
+                {statusOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Reset Filters Button */}
+          <div className="w-full md:w-auto">
+            <button
+              onClick={handleResetFilters}
+              className="w-full px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+            >
+              Reset Filters
+            </button>
           </div>
         </div>
+
+        {/* Active Filters Indicator */}
+        {(searchTerm || selectedCategory !== ALL_CATEGORIES || selectedStatus !== ALL_STATUS) && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <span className="font-medium">Active filters:</span>
+            {searchTerm && (
+              <span className="inline-flex items-center px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-md">
+                Search: "{searchTerm}"
+                <button 
+                  onClick={() => removeFilter('search')} 
+                  className="ml-1 text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100"
+                >
+                  <FiX className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {selectedCategory !== ALL_CATEGORIES && (
+              <span className="inline-flex items-center px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-md">
+                Category: {selectedCategory}
+                <button 
+                  onClick={() => removeFilter('category')} 
+                  className="ml-1 text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100"
+                >
+                  <FiX className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {selectedStatus !== ALL_STATUS && (
+              <span className="inline-flex items-center px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-md">
+                Status: {selectedStatus}
+                <button 
+                  onClick={() => removeFilter('status')} 
+                  className="ml-1 text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100"
+                >
+                  <FiX className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Results Count */}
+      <div className="mb-4 flex justify-between items-center">
+        <p className="text-sm text-gray-700 dark:text-gray-400">
+          Showing {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}
+          {(selectedCategory !== ALL_CATEGORIES || selectedStatus !== ALL_STATUS || searchTerm) && (
+            <span className="ml-2">
+              (filtered from {rows.length} total)
+            </span>
+          )}
+        </p>
+        
+        {filteredProducts.length > 0 && (
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Page {pageIndex} of {totalPages}
+          </div>
+        )}
+      </div>
+
+      {/* ---------- Table ---------- */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 dark:bg-gray-700">
+              <tr>
+                {TABLE_HEADERS.map(({ key, label }) => (
+                  <th
+                    key={label}
+                    onClick={() => key && handleSort(key)}
+                    className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    <div className="flex items-center gap-1">
+                      {label} {key && getSortIcon(key)}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {currentProducts.map((product) => (
+                <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{product.name}</td>
+                  <td className="px-6 py-4 font-mono text-gray-900 dark:text-gray-100">{product.sku}</td>
+                  <td className="px-6 py-4">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                      {product.category}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900 dark:text-white">{product.initialStock}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Min: {product.minStock}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {formatCurrencyPH(Number(product.price).toFixed(2))}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Cost: {formatCurrencyPH(Number(product.cost).toFixed(2))}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(product.status)}`}>
+                      {product.status}
+                    </span>
+                    {product.notes && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{product.notes}</div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 flex gap-2">
+                    <button onClick={() => {
+                              setSelectedProduct(product);
+                              setViewProduct(true);
+                            }} 
+                            aria-label="View product" className="p-1.5 text-gray-400 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
+                      <FiEye className="w-4 h-4" />
+                    </button>
+                    <button aria-label="Edit product" 
+                      className="p-1.5 text-gray-400 hover:text-yellow-600 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-yellow-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                      <FiEdit className="w-4 h-4" />
+                    </button>
+                    <button
+                      aria-label="Delete product"
+                      onClick={() => handleDeleteProduct(product.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                    >
+                      <FiTrash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* View Product Modal */}
+        <ViewProduct 
+          isOpen={viewProduct} 
+          onClose={() => setViewProduct(false)} 
+          product={selectedProduct} 
+        />
+
+        {/* Empty State */}
+        {!currentProducts.length && (
+          <div className="text-center py-12">
+            <FiPackage className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No products found</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {searchTerm || selectedCategory !== ALL_CATEGORIES || selectedStatus !== ALL_STATUS
+                ? "Try adjusting your search or filter criteria"
+                : "No products in inventory. Add your first product!"}
+            </p>
+            {(searchTerm || selectedCategory !== ALL_CATEGORIES || selectedStatus !== ALL_STATUS) && (
+              <button
+                onClick={handleResetFilters}
+                className="mt-4 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ---------- Pagination ---------- */}
+      {filteredProducts.length > 0 && (
+        <div className="flex items-center justify-between mt-6">
+          <p className="text-sm text-gray-700 dark:text-gray-400">
+            Showing {start + 1}-{Math.min(start + ITEMS_PER_PAGE, filteredProducts.length)} of {filteredProducts.length} products
+          </p>
+          <div className="flex gap-2">
+            <button
+              disabled={pageIndex === 1}
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              className="px-3 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            
+            {/* Show limited page numbers for better UI */}
+            {(() => {
+              const pages = [];
+              const maxVisiblePages = 5;
+              let startPage = Math.max(1, pageIndex - Math.floor(maxVisiblePages / 2));
+              let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+              
+              // Adjust if we're near the beginning
+              if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+              }
+              
+              for (let i = startPage; i <= endPage; i++) {
+                pages.push(
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i)}
+                    className={`px-3 py-1.5 text-sm border rounded-md ${
+                      pageIndex === i
+                        ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                        : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    {i}
+                  </button>
+                );
+              }
+              return pages;
+            })()}
+            
+            <button
+              disabled={pageIndex === totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              className="px-3 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
