@@ -1,43 +1,33 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
   FiSearch,
-  FiAlertTriangle,
   FiPackage,
-  FiUpload,
   FiEdit,
   FiTrash2,
   FiEye,
   FiChevronDown,
   FiX,
 } from "react-icons/fi";
-import { IoAdd } from "react-icons/io5";
 import { formatCurrencyPH } from "../../utils/formatCurrencyPH";
-import AddProduct from "../Add_Product/addProduct";
-import ViewProduct from "../View_Product/viewProduct";
-import { products, categories, statusOptions } from "../../data/mockdata";
-
-const ITEMS_PER_PAGE = 10;
-
-// Stable sentinels so comparisons are easy
-const ALL_CATEGORIES = "ALL_CATEGORIES";
-const ALL_STATUS = "ALL_STATUS";
-
-const SUMMARY_CARDS = [
-  { key: "total", title: "Total Products", color: "blue", icon: <FiPackage /> },
-  { key: "inStock", title: "In Stock", color: "green", icon: <FiPackage /> },
-  { key: "lowStock", title: "Low Stock", color: "yellow", icon: <FiAlertTriangle /> },
-  { key: "outOfStock", title: "Out of Stock", color: "red", icon: <FiPackage /> },
-];
+import ViewProduct from "../../features/View_Product/viewProduct";
+import EditProduct from "../../features/Edit_Product/editProduct";
+import { products, categories } from "../../data/mockdata";
 
 const TABLE_HEADERS = [
   { key: "name", label: "Product" },
-  { key: "sku", label: "SKU" },
+  { key: "sku", label: "SKU"},
+  { key: "brand", label: "Brand" },
   { key: "category", label: "Category" },
-  { key: "initialStock", label: "Stock" },
-  { key: "price", label: "Price" },
   { key: "status", label: "Status" },
-  { key: null, label: "Actions" },
+  { key: "stockInfo", label: "Stock" },
+  { key: "pricing", label: "Pricing" },
+  { key: "actions", label: "Actions" },
 ];
+
+const ITEMS_PER_PAGE = 10;
+const ALL_CATEGORIES = "ALL_CATEGORIES";
+const ALL_STATUS = "ALL_STATUS";
+const statuses = ["In Stock", "Low Stock", "Out of Stock", "On Sale"];
 
 const getStatusClasses = (status) => {
   switch (status) {
@@ -52,23 +42,23 @@ const getStatusClasses = (status) => {
   }
 };
 
-const InventoryPage = () => {
+const inventoryTable = () => {
   const [rows, setRows] = useState(products);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
   const [selectedStatus, setSelectedStatus] = useState(ALL_STATUS);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
   const [currentPage, setCurrentPage] = useState(1);
   const [viewProduct, setViewProduct] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [editProduct, setEditProduct] = useState(false);
 
   // Reset to page 1 when filters/search change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, selectedCategory, selectedStatus]);
 
-  // ---------- Derived Counts (live) ----------
+  // ---------- Derived Counts ----------
   const counts = useMemo(
     () => ({
       total: rows.length,
@@ -79,54 +69,57 @@ const InventoryPage = () => {
     [rows]
   );
 
-  // ---------- Filter + Sort (live) ----------
+  // ---------- Filter + Sort ----------
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
-    let list = rows.filter((p) => {
-      // Always apply search filter if there's a search term
-      const matchesSearch = !term || 
-        p.name.toLowerCase().includes(term) || 
-        p.sku.toLowerCase().includes(term);
+  let list = rows.filter((p) => {
+    const matchesSearch =
+      !term ||
+      p.name.toLowerCase().includes(term) ||
+      p.category.toLowerCase().includes(term) ||
+      p.brand.toLowerCase().includes(term) ||
+      p.variants?.some((v) => v.sku.toLowerCase().includes(term));
 
-      // Apply category filter ONLY if a specific category is selected
-      const matchesCategory = selectedCategory === ALL_CATEGORIES || 
-        p.category === selectedCategory;
+    const matchesCategory =
+      selectedCategory === ALL_CATEGORIES || p.category === selectedCategory;
 
-      // Apply status filter ONLY if a specific status is selected
-      const matchesStatus = selectedStatus === ALL_STATUS || 
-        p.status === selectedStatus;
+    const matchesStatus =
+      selectedStatus === ALL_STATUS ||
+      (selectedStatus === "On Sale" ? p.onSale : p.status === selectedStatus);
 
-      return matchesSearch && matchesCategory && matchesStatus;
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  if (sortConfig.key) {
+    const dir = sortConfig.direction === "ascending" ? 1 : -1;
+    list = [...list].sort((a, b) => {
+      const va = a[sortConfig.key];
+      const vb = b[sortConfig.key];
+
+      if (va == null && vb == null) return 0;
+      if (va == null) return -1 * dir;
+      if (vb == null) return 1 * dir;
+
+      if (typeof va === "number" && typeof vb === "number") {
+        return va === vb ? 0 : va > vb ? dir : -dir;
+      }
+
+      const sa = String(va).toLowerCase();
+      const sb = String(vb).toLowerCase();
+      return sa === sb ? 0 : sa > sb ? dir : -dir;
     });
+  }
 
-    // Apply sorting if configured
-    if (sortConfig.key) {
-      const dir = sortConfig.direction === "ascending" ? 1 : -1;
-      list = [...list].sort((a, b) => {
-        const va = a[sortConfig.key];
-        const vb = b[sortConfig.key];
+  return list;
+}, [rows, searchTerm, selectedCategory, selectedStatus, sortConfig]);
 
-        // Handle null/undefined values
-        if (va == null && vb == null) return 0;
-        if (va == null) return -1 * dir;
-        if (vb == null) return 1 * dir;
 
-        // Compare numbers
-        if (typeof va === "number" && typeof vb === "number") {
-          return va === vb ? 0 : va > vb ? dir : -dir;
-        }
-
-        // Compare strings
-        const sa = String(va).toLowerCase();
-        const sb = String(vb).toLowerCase();
-        if (sa === sb) return 0;
-        return sa > sb ? dir : -dir;
-      });
-    }
-
-    return list;
-  }, [rows, searchTerm, selectedCategory, selectedStatus, sortConfig]);
+  const removeFilter = (type) => {
+    if (type === "search") setSearchTerm("");
+    if (type === "category") setSelectedCategory(ALL_CATEGORIES);
+    if (type === "status") setSelectedStatus(ALL_STATUS);
+  };
 
   // ---------- Pagination ----------
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
@@ -148,25 +141,21 @@ const InventoryPage = () => {
     return sortConfig.direction === "ascending" ? "↑" : "↓";
   };
 
-  const handleAddProduct = (productData) => {
+   const handleAddProduct = (productData) => {
     setRows((prev) => [
       ...prev,
       {
         id: Date.now(),
-        initialStock: productData.initialStock ?? 0,
-        minStock: productData.minStock ?? 0,
         ...productData,
       },
     ]);
-    setIsModalOpen(false);
   };
 
   const handleDeleteProduct = (id) => {
     setRows((prev) => prev.filter((p) => p.id !== id));
   };
 
-  // Reset filters
-  const handleResetFilters = () => {
+   const handleResetFilters = () => {
     setSearchTerm("");
     setSelectedCategory(ALL_CATEGORIES);
     setSelectedStatus(ALL_STATUS);
@@ -174,78 +163,18 @@ const InventoryPage = () => {
     setCurrentPage(1);
   };
 
-  // Remove individual filter
-  const removeFilter = (type) => {
-    if (type === 'search') setSearchTerm("");
-    if (type === 'category') setSelectedCategory(ALL_CATEGORIES);
-    if (type === 'status') setSelectedStatus(ALL_STATUS);
+  const computeTotals = (product) => {
+    const totalStock = product.variants.reduce((sum, v) => sum + v.stock, 0);
+    const totalMinStock = Math.max(...product.variants.map(v => v.minStock));
+    const totalSellingPrice = product.variants.reduce((sum, v) => sum + (v.price * v.stock), 0);
+    const totalCostPrice = product.variants.reduce((sum, v) => sum + (v.costPrice * v.stock), 0);
+    return { totalStock, totalSellingPrice, totalCostPrice, totalMinStock };
   };
 
-  // view product handler
-  const handleViewProduct = () => {
-    setViewProduct(true);
-  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 px-4 py-6 sm:px-6 lg:px-8">
-      {/* ---------- Header ---------- */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">
-            Inventory Management
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage your products, stock levels, and inventory operations
-          </p>
-        </div>
-
-        <div className="flex flex-col xs:flex-row gap-3">
-          <button
-            type="button"
-            className="inline-flex items-center justify-center gap-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium rounded-lg px-4 py-2.5 transition-colors"
-          >
-            <FiUpload className="w-4 h-4" aria-hidden="true" /> Export
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 font-medium rounded-lg px-4 py-2.5 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all"
-          >
-            <IoAdd className="w-5 h-5" aria-hidden="true" /> Add Product
-          </button>
-        </div>
-        {/* Add Product Modal */}
-        <AddProduct
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onAddProduct={handleAddProduct}
-        />
-         
-      </div>
-
-     
-
-      {/* ---------- Summary Cards ---------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {SUMMARY_CARDS.map(({ key, title, color, icon }) => (
-          <div
-            key={key}
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{counts[key]}</p>
-              </div>
-              <div className={`p-3 rounded-lg bg-${color}-100 dark:bg-${color}-900/30 text-${color}-600 dark:text-${color}-400`}>
-                {icon}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ---------- Filters & Search ---------- */}
+    <div>
+       {/* ---------- Filters & Search ---------- */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
         <div className="flex flex-col md:flex-row gap-4 items-end">
           {/* Search */}
@@ -274,14 +203,16 @@ const InventoryPage = () => {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="appearance-none w-full p-2.5 pr-8 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-              >
+                className="appearance-none w-full p-2.5 pr-8 rounded-lg border bg-white dark:bg-gray-700"
+                >
                 <option value={ALL_CATEGORIES}>All Categories</option>
-                {categories.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
+                {categories
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
               </select>
               <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
@@ -290,22 +221,22 @@ const InventoryPage = () => {
           {/* Status Filter */}
           <div className="w-full md:w-auto">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Status
+                Status
             </label>
             <div className="relative">
-              <select
+                <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
                 className="appearance-none w-full p-2.5 pr-8 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-              >
+                >
                 <option value={ALL_STATUS}>All Status</option>
-                {statusOptions.map((option) => (
-                  <option key={option} value={option}>
+                {statuses.map((option) => (
+                    <option key={option} value={option}>
                     {option}
-                  </option>
+                    </option>
                 ))}
-              </select>
-              <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </select>
+                <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
           </div>
 
@@ -400,58 +331,66 @@ const InventoryPage = () => {
             </thead>
 
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {currentProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{product.name}</td>
-                  <td className="px-6 py-4 font-mono text-gray-900 dark:text-gray-100">{product.sku}</td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                      {product.category}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900 dark:text-white">{product.initialStock}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Min: {product.minStock}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-gray-900 dark:text-white">
-                      {formatCurrencyPH(Number(product.price).toFixed(2))}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      Cost: {formatCurrencyPH(Number(product.cost).toFixed(2))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(product.status)}`}>
-                      {product.status}
-                    </span>
-                    {product.notes && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{product.notes}</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 flex gap-2">
-                    <button onClick={() => {
-                              setSelectedProduct(product);
-                              setViewProduct(true);
-                            }} 
-                            aria-label="View product" className="p-1.5 text-gray-400 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
-                      <FiEye className="w-4 h-4" />
-                    </button>
-                    <button aria-label="Edit product" 
-                      className="p-1.5 text-gray-400 hover:text-yellow-600 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-yellow-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                      <FiEdit className="w-4 h-4" />
-                    </button>
-                    <button
-                      aria-label="Delete product"
-                      onClick={() => handleDeleteProduct(product.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                    >
-                      <FiTrash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+                {currentProducts.map((product) => {
+                    const { totalStock, totalSellingPrice, totalCostPrice, totalMinStock } = computeTotals(product);
+                    return (
+                    <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        {/* Product */}
+                        <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{product.name}</td>
+                        {/* SKU */}
+                        <td className="px-6 py-4">{product.variants[0]?.sku ?? "-"}</td>
+                        {/* Brand */}
+                        <td className="px-6 py-4">{product.brand}</td>
+                        {/* Category */}
+                        <td className="px-6 py-4">{product.category}</td>
+                        {/* Status */}
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-2 text-center">
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(product.status)}`}>
+                            {product.status}
+                            </span>
+                           {product.onSale && (
+                              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-red-500 to-pink-500 text-white">
+                                ON SALE
+                              </span>
+                            )}
+                            </div>
+                        </td>
+                        {/* Stock + Min Stock */}
+                        <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                                <span className="font-medium text-gray-900 dark:text-white">{totalStock}</span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">min: {totalMinStock}</span>
+                            </div>
+                        </td>
+                        {/* Price + Cost */}
+                        <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                                <span className="font-medium text-green-600 dark:text-green-400">
+                                {formatCurrencyPH(totalSellingPrice)}
+                                </span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                cost: {formatCurrencyPH(totalCostPrice)}
+                                </span>
+                            </div>
+                        </td>
+                        {/* Actions */}
+                        <td className="px-6 py-4 flex gap-2">
+                            <button onClick={() => { setSelectedProduct(product); setViewProduct(true); }} className="p-1.5 text-gray-400 hover:text-blue-600">
+                            <FiEye className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => { setSelectedProduct(product); setEditProduct(true); }} className="p-1.5 text-gray-400 hover:text-yellow-600">
+                            <FiEdit className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDeleteProduct(product.id)} className="p-1.5 text-gray-400 hover:text-red-600">
+                            <FiTrash2 className="w-4 h-4" />
+                            </button>
+                        </td>
+                    </tr>
+                );
+                })}
+                </tbody>
+
           </table>
         </div>
 
@@ -461,6 +400,17 @@ const InventoryPage = () => {
           onClose={() => setViewProduct(false)} 
           product={selectedProduct} 
         />
+
+        {/* Edit Product Modal */}
+        <EditProduct 
+          isOpen={editProduct}
+          onClose={() => setEditProduct(false)}
+          product={selectedProduct}
+          onSave={(updatedProduct) => {
+            setRows((prev) =>
+              prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
+            );
+        }}/>
 
         {/* Empty State */}
         {!currentProducts.length && (
@@ -540,7 +490,7 @@ const InventoryPage = () => {
         </div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default InventoryPage;
+export default inventoryTable;

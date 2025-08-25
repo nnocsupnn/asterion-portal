@@ -3,7 +3,7 @@ import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import SignOffLoader from "../../components/Loader/signoffLoader";
 import Sidebar from "../../components/Sidebar/Sidebar";
 import TopNav from "../../components/TopNav/TopNav";
-import { mockNotifications } from "../../data/mockdata";
+import { notifications as mockNotifications } from "../../data/mockdata";
 import {
   FiHome,
   FiBox,
@@ -39,8 +39,8 @@ const UserPage = () => {
   const menuItems = [
     { name: "Dashboard", icon: <FiHome />, path: "dashboard" },
     { name: "Inventory", icon: <FiBox />, path: "inventory" },
-    { name: "Transactions", icon: <FiShoppingCart />, path: "orders" },
-    { name: "Platform Sync", icon: <IoSyncOutline />, path: "transactions" },
+    { name: "Orders", icon: <FiShoppingCart />, path: "orders" },
+    { name: "Platform Sync", icon: <IoSyncOutline />, path: "platforms" },
     { name: "Reports", icon: <FiBarChart2 />, path: "reports" }
   ];
 
@@ -181,7 +181,7 @@ const UserPage = () => {
             />
           )}
           
-          <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">
+          <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto sm:overflow-x-hidden">
             <Outlet context={{ notifications, handleNotificationClick }} />
           </main>
         </div>

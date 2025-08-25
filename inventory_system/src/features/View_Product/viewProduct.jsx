@@ -1,5 +1,5 @@
 import React from 'react'
-import { FiX, FiPackage, FiExternalLink, FiTrendingUp, FiBox, FiShoppingBag, FiTag, FiLayers, FiDatabase, FiRefreshCw, FiInfo } from "react-icons/fi";
+import { FiX, FiPackage, FiExternalLink, FiTrendingUp, FiBox, FiShoppingBag, FiTag, FiLayers, FiDatabase, FiRefreshCw, FiInfo, FiImage } from "react-icons/fi";
 import { formatCurrencyPH } from "../../utils/formatCurrencyPH";
 
 const ViewProduct = ({ isOpen, onClose, product }) => {
@@ -20,13 +20,21 @@ const ViewProduct = ({ isOpen, onClose, product }) => {
     }
   };
 
-  // Calculate total stock across all platforms
-  const calculateTotalStock = () => {
-    if (!product.stockPerPlatform) return product.totalStock || 0;
-    return Object.values(product.stockPerPlatform).reduce((sum, qty) => sum + qty, 0);
+ // Compute totals for stock, price, cost, and min stock
+  const computeTotals = (product) => {
+    if (!product.variants || product.variants.length === 0) {
+      return { totalStock: 0, totalSellingPrice: 0, totalCostPrice: 0, totalMinStock: 0 };
+    }
+
+    const totalStock = product.variants.reduce((sum, v) => sum + v.stock, 0);
+    const totalSellingPrice = product.variants.reduce((sum, v) => sum + v.price * v.stock, 0);
+    const totalCostPrice = product.variants.reduce((sum, v) => sum + v.costPrice * v.stock, 0);
+    const totalMinStock = product.variants.reduce((sum, v) => sum + (v.minStock || 0), 0);
+
+    return { totalStock, totalSellingPrice, totalCostPrice, totalMinStock };
   };
 
-  const totalStock = calculateTotalStock();
+  const { totalStock, totalSellingPrice, totalCostPrice, totalMinStock } = computeTotals(product);
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-lg flex items-center justify-center z-50 p-2 sm:p-4 transition-all duration-300">
@@ -61,11 +69,29 @@ const ViewProduct = ({ isOpen, onClose, product }) => {
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                   <FiShoppingBag className="w-4 h-4" /> Product Image
                 </label>
-                <div className="relative border-2 border-dashed border-gray-300/70 dark:border-gray-600/50 rounded-2xl p-6 text-center h-64 flex flex-col items-center justify-center bg-white dark:bg-gray-800/50 shadow-sm hover:shadow-md transition-shadow duration-300">
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/20 to-purple-50/20 dark:from-blue-900/10 dark:to-purple-900/10 rounded-2xl"></div>
-                  <FiPackage className="mx-auto h-16 w-16 text-gray-400/70 mb-3 relative z-10" />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 relative z-10">No image available</p>
-                </div>
+                {product.image ? (
+                  <div className="relative border-2 border-gray-300/70 dark:border-gray-600/50 rounded-2xl overflow-hidden bg-white dark:bg-gray-800/50 shadow-sm hover:shadow-md transition-shadow duration-300 h-64">
+                    <img 
+                      src={product.image} 
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50/20 to-purple-50/20 dark:from-blue-900/10 dark:to-purple-900/10 rounded-2xl hidden flex-col items-center justify-center">
+                      <FiPackage className="mx-auto h-16 w-16 text-gray-400/70 mb-3" />
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Image failed to load</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative border-2 border-dashed border-gray-300/70 dark:border-gray-600/50 rounded-2xl p-6 text-center h-64 flex flex-col items-center justify-center bg-white dark:bg-gray-800/50 shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50/20 to-purple-50/20 dark:from-blue-900/10 dark:to-purple-900/10 rounded-2xl"></div>
+                    <FiPackage className="mx-auto h-16 w-16 text-gray-400/70 mb-3 relative z-10" />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 relative z-10">No image available</p>
+                  </div>
+                )}
               </div>
 
               {/* Basic Information */}
@@ -90,7 +116,9 @@ const ViewProduct = ({ isOpen, onClose, product }) => {
                         SKU
                       </label>
                       <div className="w-full px-4 py-3 text-sm font-mono bg-white dark:bg-gray-800/70 rounded-xl dark:text-white border border-gray-200/50 dark:border-gray-700/30 shadow-sm">
-                        {product.sku || "N/A"}
+                        {product.variants && product.variants.length > 0 
+                          ? product.variants[0].sku || "N/A" 
+                          : "N/A"}
                       </div>
                     </div>
 
@@ -126,13 +154,13 @@ const ViewProduct = ({ isOpen, onClose, product }) => {
                     </div>
                   </div>
 
-                  {product.discount && (
+                  {product.variants && product.variants.length > 1 && (
                     <div className="mt-4">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Discount
+                        Variants
                       </label>
                       <div className="w-full px-4 py-3 text-sm bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 text-purple-800 dark:text-purple-200 rounded-xl font-semibold border border-purple-200/50 dark:border-purple-700/30">
-                        🎉 {product.discount}% OFF SALE
+                        {product.variants.length} variants available
                       </div>
                     </div>
                   )}
@@ -161,10 +189,40 @@ const ViewProduct = ({ isOpen, onClose, product }) => {
                     Minimum Stock
                   </label>
                   <div className="text-xl font-semibold text-gray-900 dark:text-white text-center">
-                    {product.minStock || "0"} <span className="text-sm font-normal text-gray-500 dark:text-gray-400">units</span>
+                    {product.minStock || variant.minStock || "0"} <span className="text-sm font-normal text-gray-500 dark:text-gray-400">units</span>
                   </div>
                 </div>
               </div>
+
+              {product.variants && product.variants.length > 1 && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Variant Details
+                  </label>
+                  <div className="bg-white dark:bg-gray-800/70 p-4 rounded-xl border border-gray-200/50 dark:border-gray-700/30 shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full">
+                        <thead>
+                          <tr className="border-b border-gray-200 dark:border-gray-700">
+                            <th className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider py-2">Variant</th>
+                            <th className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider py-2">Stock</th>
+                            <th className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider py-2">Price</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {product.variants.map((variant, index) => (
+                            <tr key={variant.id} className={index % 2 === 0 ? "bg-gray-50/50 dark:bg-gray-800/30" : ""}>
+                              <td className="py-2 text-sm text-gray-900 dark:text-white">{variant.name}</td>
+                              <td className="py-2 text-sm text-gray-900 dark:text-white">{variant.stock}</td>
+                              <td className="py-2 text-sm text-gray-900 dark:text-white">{formatCurrencyPH(variant.price)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Pricing */}
@@ -178,7 +236,7 @@ const ViewProduct = ({ isOpen, onClose, product }) => {
                     Selling Price
                   </label>
                   <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 text-center">
-                    {product.price ? formatCurrencyPH(Number(product.price).toFixed(2)) : "N/A"}
+                    {formatCurrencyPH(totalSellingPrice)}
                   </div>
                 </div>
 
@@ -187,19 +245,19 @@ const ViewProduct = ({ isOpen, onClose, product }) => {
                     Cost Price
                   </label>
                   <div className="text-xl font-semibold text-gray-900 dark:text-white text-center">
-                    {product.cost ? formatCurrencyPH(Number(product.cost).toFixed(2)) : "N/A"}
+                      {formatCurrencyPH(totalCostPrice)}
                   </div>
                 </div>
               </div>
               
-              {product.price && product.cost && (
+              {totalSellingPrice > 0 && totalCostPrice > 0 && (
                 <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div className="bg-white dark:bg-gray-800/70 p-4 rounded-xl border border-gray-200/50 dark:border-gray-700/30 shadow-sm">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Profit Margin
                     </label>
                     <div className="text-lg font-semibold text-gray-900 dark:text-white text-center">
-                      {(((product.price - product.cost) / product.cost) * 100).toFixed(1)}%
+                      {(((totalSellingPrice - totalCostPrice) / totalCostPrice) * 100).toFixed(1)}%
                     </div>
                   </div>
                   
@@ -208,74 +266,11 @@ const ViewProduct = ({ isOpen, onClose, product }) => {
                       Profit per Unit
                     </label>
                     <div className="text-lg font-semibold text-emerald-600 dark:text-emerald-400 text-center">
-                      {formatCurrencyPH((product.price - product.cost).toFixed(2))}
+                      {formatCurrencyPH(totalSellingPrice - totalCostPrice)}
                     </div>
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Additional Information */}
-            {(product.description || product.notes) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Description */}
-                {product.description && (
-                  <div className="bg-gradient-to-r from-amber-50/30 to-orange-50/30 dark:from-amber-900/10 dark:to-orange-900/10 p-5 rounded-2xl border border-gray-100/50 dark:border-gray-700/30">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                      <FiInfo className="w-4 h-4" /> Product Description
-                    </label>
-                    <div className="w-full px-4 py-3 text-sm bg-white dark:bg-gray-800/70 rounded-xl dark:text-white border border-gray-200/50 dark:border-gray-700/30 shadow-sm min-h-[100px]">
-                      {product.description}
-                    </div>
-                  </div>
-                )}
-
-                {/* Notes */}
-                {product.notes && (
-                  <div className="bg-gradient-to-r from-violet-50/30 to-purple-50/30 dark:from-violet-900/10 dark:to-purple-900/10 p-5 rounded-2xl border border-gray-100/50 dark:border-gray-700/30">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                      <FiInfo className="w-4 h-4" /> Additional Notes
-                    </label>
-                    <div className="w-full px-4 py-3 text-sm bg-white dark:bg-gray-800/70 rounded-xl dark:text-white border border-gray-200/50 dark:border-gray-700/30 shadow-sm min-h-[100px]">
-                      {product.notes}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Sync Information */}
-            <div className="bg-gradient-to-r from-blue-50/30 to-cyan-50/30 dark:from-blue-900/10 dark:to-cyan-900/10 p-5 rounded-2xl border border-gray-100/50 dark:border-gray-700/30">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-                <FiRefreshCw className="w-5 h-5 text-blue-600 dark:text-blue-400" /> Sync Information
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="bg-white dark:bg-gray-800/70 p-4 rounded-xl border border-gray-200/50 dark:border-gray-700/30 shadow-sm">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                    <FiDatabase className="w-4 h-4" /> Last Synced
-                  </label>
-                  <div className="text-sm text-gray-900 dark:text-white">
-                    {product.lastSynced ? new Date(product.lastSynced).toLocaleString() : "Never"}
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-gray-800/70 p-4 rounded-xl border border-gray-200/50 dark:border-gray-700/30 shadow-sm">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Sync Status
-                  </label>
-                  <div className="text-sm text-center">
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                      product.syncStatus === 'Up-to-date' 
-                        ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white' 
-                        : product.syncStatus === 'Error'
-                        ? 'bg-gradient-to-r from-red-500 to-rose-500 text-white'
-                        : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
-                    } shadow-md`}>
-                      {product.syncStatus || "Unknown"}
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Buttons */}
